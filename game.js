@@ -26,10 +26,8 @@ function loadImages(paths){
 
             // if all images are loaded
             if (skierImages.length == paths.length) {
-                console.log("ffff")
                 skierReady = true;
                 skier.image = skierImages[animationState];
-                console.log(skierImages[animationState]);
             }
         }
         img.src = path;
@@ -55,7 +53,8 @@ let skier = {
     isCollided: false,
     timeSinceLastAnimation: 0,
     image: new Image(),
-    timeSinceLastCrash: 0
+    timeSinceLastCrash: 0,
+    treesAvoided: 0
 };
 
 let tree = {
@@ -75,39 +74,43 @@ let collision = function() {
 
     skier.speed = 0;
     skier.isCollided = true;
+    skier.treesAvoided = 0;
+
     console.log("collision");
 }
 
 let checkForCollision = function() {
     // If player runs into tree, game over
     if (
-        skier.x <= (tree.x + TREE_WIDTH)
+        skier.x <= (tree.x + TREE_WIDTH - 20)
         && skier.x >= tree.x
-        && skier.y <= (tree.y + TREE_HEIGHT)
-        && skier.y >= tree.y
+        && skier.y <= (tree.y + (TREE_HEIGHT / 2))
+        && skier.y >= tree.y + 30
     ) {
         collision();
-    } else if (skier.isCollided) {
+    } else if (skier.isCollided) { // if player moves away from the tree
+
         skier.isCollided = false;
         skier.speed = 10;
-        skier.timeSinceLastCrash = 0;
     } else {
-        skier.timeSinceLastCrash += delta;
-
         updateScores();
     }
 }
 
 let updateScores = function() {
-    score = Math.floor(skier.timeSinceLastCrash);
+    score = skier.treesAvoided;
+
+    // high score is whichever one is higher: score or highScore
     highScore = Math.max(score, highScore)
 }
 
 let updateTree = function() {
     // if the tree is at the top of the page, move back to the bottom
-    if (tree.y <= 0) {
+    if (tree.y <= 0 - TREE_HEIGHT) {
         tree.y = window.innerHeight;
         tree.x = getRandomInt(0, window.innerWidth); 
+
+        skier.treesAvoided++;
     } else {
         // move the tree closer to the player
         tree.y -= skier.speed;
@@ -119,17 +122,17 @@ let updateSkierSpeed = function() {
     // some math that you might not understand 
     // (ask if you want to know how it works)
 
-    skier.speed += Math.floor((1 / skier.speed) * 75) / 15;
+    skier.speed += Math.floor((1 / skier.speed) * 75) / 100;
 }
 
 let drawScores = function(delta) {
     ctx.fillStyle = "rgb(250, 195, 0)";
     ctx.font = "24px Courier New";
-    ctx.fillText("High Score: " + Math.floor(highScore), 38, 30);
+    ctx.fillText("High Score: " + highScore, 38, 30);
 
     ctx.fillStyle = "rgb(250, 195, 0)";
     ctx.font = "24px Courier New";
-    ctx.fillText("Score: " + Math.floor(skier.timeSinceLastCrash), 38, 55);
+    ctx.fillText("Score: " + score, 38, 55);
 }
 
 let drawGameObjects = function() {
@@ -156,7 +159,7 @@ let playGame = function() {
 
     // get seconds between the last two animation calls
     timeOfCurrentIteration = Date.now();
-    delta = (timeOfCurrentIteration - timeOfLastIteration) / 1000;
+    let delta = (timeOfCurrentIteration - timeOfLastIteration) / 1000;
 
     // make canvas blank before drawing again
     ctx.fillStyle = "white";
