@@ -11,6 +11,12 @@ const SKIER_WIDTH = 47;
 let animationState = 0; // 3 animation frames
 let skierImages = [];
 let skierReady = false;
+let score = 0;
+let highScore = 0;
+
+// time since last game loop iteration
+let timeOfLastIteration = 0;
+let timeOfCurrentIteration = 0;
 
 function loadImages(paths){
     paths.forEach(function(path) {
@@ -45,10 +51,11 @@ treeImage.src = "images/scaled/tree.png";
 let skier = {
     speed: 30, // movement in pixels per second
     x: canvas.width / 2,
-    y: canvas.height / 2,
+    y: 50,
     isCollided: false,
     timeSinceLastAnimation: 0,
-    image: new Image()
+    image: new Image(),
+    timeSinceLastCrash: 0
 };
 
 let tree = {
@@ -68,7 +75,7 @@ let collision = function() {
 
     skier.speed = 0;
     skier.isCollided = true;
-    console.log("game over");
+    console.log("collision");
 }
 
 let checkForCollision = function() {
@@ -83,7 +90,17 @@ let checkForCollision = function() {
     } else if (skier.isCollided) {
         skier.isCollided = false;
         skier.speed = 10;
+        skier.timeSinceLastCrash = 0;
+    } else {
+        skier.timeSinceLastCrash += delta;
+
+        updateScores();
     }
+}
+
+let updateScores = function() {
+    score = Math.floor(skier.timeSinceLastCrash);
+    highScore = Math.max(score, highScore)
 }
 
 let updateTree = function() {
@@ -105,31 +122,24 @@ let updateSkierSpeed = function() {
     skier.speed += Math.floor((1 / skier.speed) * 75) / 15;
 }
 
-let playGame = function() {
-    ctx.fillStyle = "white";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+let drawScores = function(delta) {
+    ctx.fillStyle = "rgb(250, 195, 0)";
+    ctx.font = "24px Courier New";
+    ctx.fillText("High Score: " + Math.floor(highScore), 38, 30);
 
-    checkForCollision();
+    ctx.fillStyle = "rgb(250, 195, 0)";
+    ctx.font = "24px Courier New";
+    ctx.fillText("Score: " + Math.floor(skier.timeSinceLastCrash), 38, 55);
+}
 
-    updateTree();
-
-    updateSkierSpeed();
-
-    now = Date.now();
-    delta = (now - then) / 1000;
-    changeAnimation(delta);
-    then = now;
-
+let drawGameObjects = function() {
     ctx.drawImage(skier.image, skier.x, skier.y);
     ctx.drawImage(treeImage, tree.x, tree.y);
-
-    // call this function again ASAP
-    requestAnimationFrame(playGame);
-};
+}
 
 let changeAnimation = function(delta) {
     skier.timeSinceLastAnimation += delta;
-    console.log(delta)
+
     if (skier.timeSinceLastAnimation >= .100 + skier.speed / 1000) {
         if (animationState < 2) {
             animationState++;
@@ -142,9 +152,37 @@ let changeAnimation = function(delta) {
     }
 }
 
-then = Date.now();
+let playGame = function() {
+
+    // get seconds between the last two animation calls
+    timeOfCurrentIteration = Date.now();
+    delta = (timeOfCurrentIteration - timeOfLastIteration) / 1000;
+
+    // make canvas blank before drawing again
+    ctx.fillStyle = "white";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    checkForCollision();
+
+    updateTree();
+
+    updateSkierSpeed();
+    
+    changeAnimation(delta);
+
+    drawGameObjects();
+
+    drawScores();
+
+    // reset timeOfLastIteration
+    timeOfLastIteration = timeOfCurrentIteration;
+
+    // call this function again ASAP
+    requestAnimationFrame(playGame);
+};
+
+// give it a default value
+timeOfLastIteration = Date.now();
 playGame();
-
-
 
 
