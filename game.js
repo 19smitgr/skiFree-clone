@@ -1,19 +1,37 @@
 // Create the canvas and set it up
 const canvas = document.getElementById("game-canvas");
 const ctx = canvas.getContext("2d");
-const TREE_WIDTH = 144;
-const TREE_HEIGHT = 144;
-const SKIER_WIDTH = 47;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Hero image
+// the variables we'll be using
+const TREE_WIDTH = 144;
+const TREE_HEIGHT = 144;
+const SKIER_WIDTH = 47;
+let animationState = 0; // 3 animation frames
+let skierImages = [];
 let skierReady = false;
-const skierImage = new Image();
-skierImage.onload = function () {
-    skierReady = true;
-};
-skierImage.src = "images/scaled/skier3.png";
+
+function loadImages(paths){
+    paths.forEach(function(path) {
+        let img = new Image();
+        img.onload = function() {
+            skierImages.push(img);
+
+            // if all images are loaded
+            if (skierImages.length == paths.length) {
+                console.log("ffff")
+                skierReady = true;
+                skier.image = skierImages[animationState];
+                console.log(skierImages[animationState]);
+            }
+        }
+        img.src = path;
+    });
+}
+
+skierImagePaths = ["images/scaled/skier1.png", "images/scaled/skier2.png", "images/scaled/skier2.png"];
+loadImages(skierImagePaths);
 
 // Tree (obstacle) image
 let treeReady = false;
@@ -23,12 +41,14 @@ treeImage.onload = function () {
 };
 treeImage.src = "images/scaled/tree.png";
 
-// Game objects
+// default values of game objects
 let skier = {
     speed: 30, // movement in pixels per second
     x: canvas.width / 2,
     y: canvas.height / 2,
-    isCollided: false
+    isCollided: false,
+    timeSinceLastAnimation: 0,
+    image: new Image()
 };
 
 let tree = {
@@ -95,13 +115,34 @@ let playGame = function() {
 
     updateSkierSpeed();
 
-    ctx.drawImage(skierImage, skier.x, skier.y);
+    now = Date.now();
+    delta = (now - then) / 1000;
+    changeAnimation(delta);
+    then = now;
+
+    ctx.drawImage(skier.image, skier.x, skier.y);
     ctx.drawImage(treeImage, tree.x, tree.y);
 
     // call this function again ASAP
     requestAnimationFrame(playGame);
 };
 
+let changeAnimation = function(delta) {
+    skier.timeSinceLastAnimation += delta;
+    console.log(delta)
+    if (skier.timeSinceLastAnimation >= .100 + skier.speed / 1000) {
+        if (animationState < 2) {
+            animationState++;
+        } else {
+            animationState = 0;
+        }
+        
+        skier.image = skierImages[animationState];
+        skier.timeSinceLastAnimation = 0;
+    }
+}
+
+then = Date.now();
 playGame();
 
 
