@@ -13,6 +13,7 @@ let skierImages = [];
 let skierReady = false;
 let score = 0;
 let highScore = 0;
+let trees = [];
 
 // time since last game loop iteration
 let timeOfLastIteration = 0;
@@ -57,10 +58,16 @@ let skier = {
     treesAvoided: 0
 };
 
-let tree = {
-    x: canvas.width / 2,
-    y: window.innerHeight
-};
+let generateTrees = function(numOfTrees) {
+    
+    // give them a default value
+    for (let i=0; i < numOfTrees; i++) {
+        trees.push({
+            x: getRandomInt(0, window.innerWidth),
+            y: getRandomInt(0, window.innerHeight)
+        });
+    }
+}
 
 // if we move our mouse, this will call the "update" function
 document.addEventListener('mousemove', function() {
@@ -68,33 +75,38 @@ document.addEventListener('mousemove', function() {
     skier.x = event.clientX - (SKIER_WIDTH / 2);
 });
 
-let collision = function() {
-    // you can really put whatever here. 
-    // This code will be called after the player hits a tree
+let checkForCollision = function(delta) {
+    let hasCollidedThisInstance = false;
 
-    skier.speed = 0;
-    skier.isCollided = true;
-    skier.treesAvoided = 0;
+    for (tree of trees) {
 
-    console.log("collision");
-}
+        if ( // If player runs into tree
+            skier.x <= (tree.x + TREE_WIDTH - 20)
+            && skier.x >= tree.x
+            && skier.y <= (tree.y + (TREE_HEIGHT / 2))
+            && skier.y >= tree.y + 30
+        ) {
+            skier.speed = 0;
+            skier.isCollided = true;
+            hasCollidedThisInstance = true;
+            skier.treesAvoided = 0;
 
-let checkForCollision = function() {
-    // If player runs into tree, game over
-    if (
-        skier.x <= (tree.x + TREE_WIDTH - 20)
-        && skier.x >= tree.x
-        && skier.y <= (tree.y + (TREE_HEIGHT / 2))
-        && skier.y >= tree.y + 30
-    ) {
-        collision();
-    } else if (skier.isCollided) { // if player moves away from the tree
+            console.log("collision");
+        }
+    };
 
+    if (!hasCollidedThisInstance && skier.isCollided) {
         skier.isCollided = false;
         skier.speed = 10;
-    } else {
-        updateScores();
     }
+
+    // if the variable is still set to true, but is no longer colliding
+    if (!skier.isCollided) {
+        updateScores();
+        updateSkierSpeed();
+        changeAnimation(delta);
+    }
+
 }
 
 let updateScores = function() {
@@ -104,17 +116,19 @@ let updateScores = function() {
     highScore = Math.max(score, highScore)
 }
 
-let updateTree = function() {
-    // if the tree is at the top of the page, move back to the bottom
-    if (tree.y <= 0 - TREE_HEIGHT) {
-        tree.y = window.innerHeight;
-        tree.x = getRandomInt(0, window.innerWidth); 
+let updateTrees = function() {
+    trees.forEach(function(tree) {
+        // if the tree is at the top of the page, move back to the bottom
+        if (tree.y <= 0 - TREE_HEIGHT) {
+            tree.y = window.innerHeight;
+            tree.x = getRandomInt(0, window.innerWidth); 
 
-        skier.treesAvoided++;
-    } else {
-        // move the tree closer to the player
-        tree.y -= skier.speed;
-    }
+            skier.treesAvoided++;
+        } else {
+            // move the tree closer to the player
+            tree.y -= skier.speed;
+        }
+    });
 }
 
 let updateSkierSpeed = function() {
@@ -122,7 +136,9 @@ let updateSkierSpeed = function() {
     // some math that you might not understand 
     // (ask if you want to know how it works)
 
-    skier.speed += Math.floor((1 / skier.speed) * 75) / 100;
+    if (skier.speed != 0) {
+        skier.speed += Math.floor((1 / skier.speed) * 75) / 100;
+    }
 }
 
 let drawScores = function(delta) {
@@ -137,7 +153,10 @@ let drawScores = function(delta) {
 
 let drawGameObjects = function() {
     ctx.drawImage(skier.image, skier.x, skier.y);
-    ctx.drawImage(treeImage, tree.x, tree.y);
+
+    trees.forEach(function(tree) {
+        ctx.drawImage(treeImage, tree.x, tree.y);
+    });
 }
 
 let changeAnimation = function(delta) {
@@ -166,13 +185,9 @@ let playGame = function() {
     ctx.fillStyle = "white";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    checkForCollision();
+    checkForCollision(delta);
 
-    updateTree();
-
-    updateSkierSpeed();
-    
-    changeAnimation(delta);
+    updateTrees();
 
     drawGameObjects();
 
@@ -187,6 +202,7 @@ let playGame = function() {
 
 // give it a default value
 timeOfLastIteration = Date.now();
+generateTrees(7);
 playGame();
 
 
