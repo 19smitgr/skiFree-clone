@@ -34,7 +34,7 @@ function loadImages(paths){
     });
 }
 
-skierImagePaths = ["images/scaled/skier1.png", "images/scaled/skier2.png", "images/scaled/skier2.png"];
+skierImagePaths = ["images/scaled/skier1.png", "images/scaled/skier2.png", "images/scaled/skier3.png"];
 loadImages(skierImagePaths);
 
 // Tree (obstacle) image
@@ -143,7 +143,8 @@ let drawGameObjects = function() {
 let changeAnimation = function(delta) {
     skier.timeSinceLastAnimation += delta;
 
-    if (skier.timeSinceLastAnimation >= .100 + skier.speed / 1000) {
+    // animation speed gets quicker as skier.speed increases
+    if (skier.timeSinceLastAnimation >= .100 - skier.speed / 1000) {
         if (animationState < 2) {
             animationState++;
         } else {
