@@ -288,8 +288,27 @@ let updatePowerUps = function(delta) {
 }
 
 let submitScore = function() {
-    // TODO: implement loading high scores also
+    firebase.database().ref('scores').child(username).set({
+        highScore: highScore
+    });
+}
 
+let loadScores = function() {
+    firebase.database().ref('scores').child(username).once('value', function(snapshot) {
+        let userExists = (snapshot.val() !== null);
+
+        if (userExists) highScore = snapshot.val().highScore;
+    });
+
+    alert("To see other people's live high scores, check the console (press ctrl+shift+j)");
+
+    console.log("Sorry, I was too lazy to create a nice interface for this.");
+    firebase.database().ref('scores').on('value', function(snapshot) {
+        console.log('\n\nCurrent list: ')
+        snapshot.forEach(user => {
+            console.log(user.key + ": " + user.val().highScore);
+        });
+    });
 }
 
 let playGame = function() {
@@ -323,9 +342,9 @@ let playGame = function() {
 document.addEventListener('keydown', function(e) {
     // S key
     if (e.which == 83) {
-        let submitScore = confirm("Do you want to submit your high score?");
+        let submitScoreConfirmation = confirm("Do you want to submit your high score?");
 
-        if (submitScore) {
+        if (submitScoreConfirmation) {
             submitScore();
         }
     }
@@ -342,6 +361,9 @@ document.addEventListener('mousemove', function() {
 timeOfLastIteration = Date.now();
 generateTrees(7);
 
+
+let username = prompt("What is your name? This will let us load high scores");
+loadScores();
 playGame();
 
 
