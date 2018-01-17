@@ -8,18 +8,23 @@ canvas.height = window.innerHeight;
 const TREE_WIDTH = 144;
 const TREE_HEIGHT = 144;
 const SKIER_WIDTH = 47;
+const SKIER_HEIGHT = 93;
 let animationState = 0; // 3 animation frames
 let skierImages = [];
+let powerups = [];
+let powerupsOnScreen = [];
+let activePowerup = "";
 let skierReady = false;
 let score = 0;
 let highScore = 0;
 let trees = [];
+let SHIELD_WIDTH = 119;
 
 // time since last game loop iteration
 let timeOfLastIteration = 0;
 let timeOfCurrentIteration = 0;
 
-function loadImages(paths){
+function loadSkierSprite(paths){
     paths.forEach(function(path) {
         let img = new Image();
         img.onload = function() {
@@ -35,8 +40,21 @@ function loadImages(paths){
     });
 }
 
-skierImagePaths = ["images/scaled/skier1.png", "images/scaled/skier2.png", "images/scaled/skier3.png"];
-loadImages(skierImagePaths);
+let skierImagePaths = ["images/scaled/skier1.png", "images/scaled/skier2.png", "images/scaled/skier3.png"];
+loadSkierSprite(skierImagePaths);
+
+// shield powerup image
+let shieldReady = false;
+let shieldImage = new Image();
+shieldImage.onload = function() {
+    powerups.push({
+        image: shieldImage,
+        type: "shield"
+    });
+
+    shieldReady = true;
+}
+shieldImage.src = "images/originals/shield.png";
 
 // Tree (obstacle) image
 let treeReady = false;
@@ -46,17 +64,39 @@ treeImage.onload = function () {
 };
 treeImage.src = "images/scaled/tree.png";
 
+// Tree (obstacle) image
+let brokenTreeRightReady = false;
+const brokenTreeRightImage = new Image();
+brokenTreeRightImage.onload = function () {
+    brokenTreeRightReady = true;
+};
+brokenTreeRightImage.src = "images/scaled/brokenTreeRight.png";
+
+// Tree (obstacle) image
+let brokenTreeLeftReady = false;
+const brokenTreeLeftImage = new Image();
+brokenTreeLeftImage.onload = function () {
+    brokenTreeLeftReady = true;
+};
+brokenTreeLeftImage.src = "images/scaled/brokenTreeLeft.png";
+
 // default values of game objects
 let skier = {
-    speed: 30, // movement in pixels per second
+    speed: 10, // movement in pixels per second
     x: canvas.width / 2,
-    y: 50,
+    y: 100,
     isCollided: false,
     timeSinceLastAnimation: 0,
     image: new Image(),
     timeSinceLastCrash: 0,
-    treesAvoided: 0
+    treesAvoided: 0,
+    hasPowerup: false,
+    powerup: {}
 };
+
+let everythingIsReady = function() {
+    return skierReady && treeReady && shieldReady && brokenTreeLeftReady && brokenTreeRightReady
+}
 
 let generateTrees = function(numOfTrees) {
     
@@ -64,16 +104,11 @@ let generateTrees = function(numOfTrees) {
     for (let i=0; i < numOfTrees; i++) {
         trees.push({
             x: getRandomInt(0, window.innerWidth),
-            y: getRandomInt(0, window.innerHeight)
+            y: getRandomInt(0, window.innerHeight) + window.innerHeight,
+            image: treeImage
         });
     }
 }
-
-// if we move our mouse, this will call the "update" function
-document.addEventListener('mousemove', function() {
-    // move the skier left and right
-    skier.x = event.clientX - (SKIER_WIDTH / 2);
-});
 
 let checkForCollision = function(delta) {
     let hasCollidedThisInstance = false;
@@ -86,12 +121,44 @@ let checkForCollision = function(delta) {
             && skier.y <= (tree.y + (TREE_HEIGHT / 2))
             && skier.y >= tree.y + 30
         ) {
-            skier.speed = 0;
-            skier.isCollided = true;
-            hasCollidedThisInstance = true;
-            skier.treesAvoided = 0;
+            if (!skier.hasPowerup) {
+                skier.speed = 0;
+                skier.isCollided = true;
+                hasCollidedThisInstance = true;
+                skier.treesAvoided = 0;
+                console.log("collision");
+            } else if (skier.hasPowerup && skier.powerup.type == "shield") {
+                
+                let isOnRightSide = skier.x >= tree.x + TREE_WIDTH / 2
+                if (isOnRightSide) {
+                    tree.image = brokenTreeLeftImage;
+                } else {
+                    tree.image = brokenTreeRightImage;
+                }
+            }
+        }
+    };
 
-            console.log("collision");
+    for (powerup of powerupsOnScreen) {
+
+        if ( // If player runs into tree
+            skier.x <= (powerup.x + TREE_WIDTH - 20)
+            && skier.x >= powerup.x
+            && skier.y <= (powerup.y + (TREE_HEIGHT / 2))
+            && skier.y >= powerup.y + 30
+        ) {
+            // if already has powerup
+            if (!skier.hasPowerup) {
+                skier.powerup.image = powerup.image;
+                skier.powerup.type = powerup.type;
+                skier.hasPowerup = true;
+                skier.powerup.duration = 5; // seconds
+
+                ctx.fillStyle = "rgb(250, 195, 0)";
+                ctx.font = "24px Courier New";
+            }
+
+            console.log("powerup gained");
         }
     };
 
@@ -122,6 +189,7 @@ let updateTrees = function() {
         if (tree.y <= 0 - TREE_HEIGHT) {
             tree.y = window.innerHeight;
             tree.x = getRandomInt(0, window.innerWidth); 
+            tree.image = treeImage;
 
             skier.treesAvoided++;
         } else {
@@ -149,14 +217,26 @@ let drawScores = function(delta) {
     ctx.fillStyle = "rgb(250, 195, 0)";
     ctx.font = "24px Courier New";
     ctx.fillText("Score: " + score, 38, 55);
+
+    ctx.fillStyle = "rgb(250, 195, 0)";
+    ctx.font = "24px Courier New";
+    ctx.fillText("Press S to submit your high score", window.innerWidth - 500, 30);
 }
 
 let drawGameObjects = function() {
     ctx.drawImage(skier.image, skier.x, skier.y);
 
     trees.forEach(function(tree) {
-        ctx.drawImage(treeImage, tree.x, tree.y);
+        ctx.drawImage(tree.image, tree.x, tree.y);
     });
+
+    powerupsOnScreen.forEach(function(powerup) {
+        ctx.drawImage(powerup.image, powerup.x, powerup.y);
+    });
+
+    if (skier.hasPowerup && skier.powerup.type == "shield") {
+        ctx.drawImage(skier.powerup.image, skier.x - SHIELD_WIDTH / 2 + 20, skier.y - 10);
+    }
 }
 
 let changeAnimation = function(delta) {
@@ -175,34 +255,93 @@ let changeAnimation = function(delta) {
     }
 }
 
+let updatePowerUps = function(delta) {
+    // 1% chance of powerup
+    if (Math.ceil(Math.random() * 100) == 1) {
+        let randNum = getRandomInt(0, powerups.length - 1);
+
+        powerupsOnScreen.push({
+            image: powerups[randNum].image,
+            type: powerups[randNum].type,
+            x: getRandomInt(0, window.innerWidth),
+            y: window.innerHeight
+        });
+    }
+
+    powerupsOnScreen = powerupsOnScreen.filter(powerupImage => powerupImage.y >= 0);
+    powerupsOnScreen.forEach(function(powerupImage) {
+        powerupImage.y -= skier.speed;
+    });
+
+    skier.powerup.duration -= delta;
+
+    if (skier.hasPowerup) {
+        ctx.fillStyle = "rgb(250, 195, 0)";
+        ctx.font = "24px Courier New";
+        ctx.fillText("Power up: " + Math.round(skier.powerup.duration) + " s", window.innerWidth - 500, 55);
+    }
+
+    if (skier.powerup.duration <= 0) {
+        skier.hasPowerup = false;
+        skier.powerup = {};
+    };
+}
+
+let submitScore = function() {
+    // TODO: implement loading high scores also
+
+}
+
 let playGame = function() {
+    if (everythingIsReady() && !document.hidden) {
+        // get seconds between the last two animation calls
+        timeOfCurrentIteration = Date.now();
+        let delta = (timeOfCurrentIteration - timeOfLastIteration) / 1000;
 
-    // get seconds between the last two animation calls
-    timeOfCurrentIteration = Date.now();
-    let delta = (timeOfCurrentIteration - timeOfLastIteration) / 1000;
+        // make canvas blank before drawing again
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // make canvas blank before drawing again
-    ctx.fillStyle = "white";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+        checkForCollision(delta);
 
-    checkForCollision(delta);
+        updateTrees();
 
-    updateTrees();
+        updatePowerUps(delta);
 
-    drawGameObjects();
+        drawGameObjects();
 
-    drawScores();
+        drawScores();
 
-    // reset timeOfLastIteration
-    timeOfLastIteration = timeOfCurrentIteration;
+        // reset timeOfLastIteration
+        timeOfLastIteration = timeOfCurrentIteration;
+    }
 
     // call this function again ASAP
     requestAnimationFrame(playGame);
 };
 
+document.addEventListener('keydown', function(e) {
+    // S key
+    if (e.which == 83) {
+        let submitScore = confirm("Do you want to submit your high score?");
+
+        if (submitScore) {
+            submitScore();
+        }
+    }
+});
+
+// if we move our mouse, this will call the "update" function
+document.addEventListener('mousemove', function() {
+    // move the skier left and right
+    skier.x = event.clientX - (SKIER_WIDTH / 2);
+    skier.y = event.clientY - (SKIER_HEIGHT / 2);
+});
+
 // give it a default value
 timeOfLastIteration = Date.now();
 generateTrees(7);
+
 playGame();
 
 
